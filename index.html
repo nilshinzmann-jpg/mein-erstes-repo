@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mein Ernährungsplan</title>
+  <meta name="description" content="Persönliche Ernährungsapp mit Wochenplan, Rezepten und Einkaufsliste." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <h1>🥗 Mein Ernährungsplan</h1>
+      <button id="btn-reset" class="text-btn" title="Alle Daten zurücksetzen">Zurücksetzen</button>
+    </div>
+    <nav class="tabs">
+      <button class="tab-btn aktiv" data-tab="profil">Profil</button>
+      <button class="tab-btn" data-tab="plan">Wochenplan</button>
+      <button class="tab-btn" data-tab="einkauf">Einkaufsliste</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ PROFIL ============ -->
+    <section id="tab-profil" class="tab-inhalt aktiv">
+      <p class="intro">Stell hier deine Wünsche ein – die App berechnet deinen Bedarf und plant passende Gerichte.</p>
+
+      <form id="profil-form" autocomplete="off" onsubmit="return false;">
+        <div class="feld-grid">
+          <label class="feld">
+            <span>Name</span>
+            <input type="text" id="f-name" placeholder="Dein Name" />
+          </label>
+          <label class="feld">
+            <span>Geschlecht</span>
+            <select id="f-geschlecht">
+              <option value="maennlich">männlich</option>
+              <option value="weiblich">weiblich</option>
+            </select>
+          </label>
+          <label class="feld">
+            <span>Alter (Jahre)</span>
+            <input type="number" id="f-alter" min="10" max="100" />
+          </label>
+          <label class="feld">
+            <span>Größe (cm)</span>
+            <input type="number" id="f-groesse" min="100" max="230" />
+          </label>
+          <label class="feld">
+            <span>Gewicht (kg)</span>
+            <input type="number" id="f-gewicht" min="30" max="250" step="0.5" />
+          </label>
+          <label class="feld">
+            <span>Aktivität</span>
+            <select id="f-aktivitaet">
+              <option value="1.2">Wenig (Bürojob, kaum Sport)</option>
+              <option value="1.375">Leicht (1–2× Sport/Woche)</option>
+              <option value="1.55">Moderat (3–4× Sport/Woche)</option>
+              <option value="1.725">Hoch (5–6× Sport/Woche)</option>
+              <option value="1.9">Sehr hoch (Leistungssport)</option>
+            </select>
+          </label>
+          <label class="feld">
+            <span>Ziel</span>
+            <select id="f-ziel">
+              <option value="abnehmen">Abnehmen</option>
+              <option value="halten">Gewicht halten</option>
+              <option value="zunehmen">Zunehmen / Muskelaufbau</option>
+            </select>
+          </label>
+          <label class="feld">
+            <span>Ernährungsform</span>
+            <select id="f-ernaehrung">
+              <option value="omnivor">Alles (omnivor)</option>
+              <option value="vegetarisch">Vegetarisch</option>
+              <option value="vegan">Vegan</option>
+              <option value="pescetarisch">Pescetarisch (Fisch, kein Fleisch)</option>
+              <option value="low-carb">Low Carb</option>
+              <option value="high-protein">High Protein</option>
+            </select>
+          </label>
+          <label class="feld">
+            <span>Mahlzeiten pro Tag</span>
+            <select id="f-mahlzeiten">
+              <option value="3">3 (Frühstück, Mittag, Abend)</option>
+              <option value="4">4 (+ Snack)</option>
+            </select>
+          </label>
+          <label class="feld">
+            <span>Personen (für Einkauf)</span>
+            <input type="number" id="f-personen" min="1" max="12" />
+          </label>
+        </div>
+
+        <fieldset class="feld-block">
+          <legend>Unverträglichkeiten</legend>
+          <div class="cb-reihe">
+            <label class="cb"><input type="checkbox" class="allergie-cb" value="glutenfrei" /> Glutenfrei</label>
+            <label class="cb"><input type="checkbox" class="allergie-cb" value="laktosefrei" /> Laktosefrei</label>
+          </div>
+        </fieldset>
+
+        <label class="feld feld-voll">
+          <span>Zutaten, die du nicht magst (mit Komma trennen)</span>
+          <input type="text" id="f-abneigungen" placeholder="z.B. Pilze, Fisch, Zwiebel" />
+        </label>
+      </form>
+
+      <div class="ziel-block">
+        <h2>Dein Tagesbedarf</h2>
+        <div id="ziel-anzeige" class="ziel-grid"></div>
+        <p id="bmr-hinweis" class="klein"></p>
+      </div>
+
+      <button id="btn-plan" class="haupt-btn">Wochenplan erstellen →</button>
+    </section>
+
+    <!-- ============ PLAN ============ -->
+    <section id="tab-plan" class="tab-inhalt">
+      <div id="plan-inhalt"></div>
+    </section>
+
+    <!-- ============ EINKAUF ============ -->
+    <section id="tab-einkauf" class="tab-inhalt">
+      <div class="einkauf-kopf">
+        <h2>Einkaufsliste für die Woche</h2>
+        <button id="btn-einkauf-kopieren" class="text-btn">Als Text kopieren</button>
+      </div>
+      <div id="einkauf-inhalt"></div>
+    </section>
+  </main>
+
+  <!-- Rezept-Modal -->
+  <div id="modal" class="modal">
+    <div class="modal-box">
+      <button id="btn-modal-schliessen" class="modal-schliessen" aria-label="Schließen">×</button>
+      <h2 id="modal-titel"></h2>
+      <p id="modal-meta" class="modal-meta"></p>
+      <div id="modal-zutaten"></div>
+      <div id="modal-schritte"></div>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p>Alle Angaben sind Richtwerte und ersetzen keine medizinische Ernährungsberatung.</p>
+  </footer>
+
+  <script src="js/recipes.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
