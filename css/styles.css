@@ -226,6 +226,38 @@ main { max-width: 820px; margin: 0 auto; padding: 20px; }
 .einkauf-item.erledigt .ek-name,
 .einkauf-item.erledigt .ek-menge { text-decoration: line-through; color: var(--grau); }
 
+/* ---------- Favoriten ---------- */
+.mini-btn.herz { background: none; border: 1px solid var(--rand); padding: 6px 8px; font-size: 14px; }
+.mini-btn.herz.aktiv { border-color: #e57373; background: #fdecec; }
+.fav-titel { font-size: 18px; margin-bottom: 6px; }
+.fav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--rand);
+  border-radius: 20px;
+  background: var(--karte);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--grau);
+  cursor: pointer;
+}
+.fav-btn.aktiv { border-color: #e57373; background: #fdecec; color: #c0392b; }
+.fav-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--karte);
+  border: 1px solid var(--rand);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  box-shadow: var(--schatten);
+}
+
 /* ---------- Modal ---------- */
 .modal {
   display: none;

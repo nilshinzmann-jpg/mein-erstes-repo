@@ -17,6 +17,7 @@
     <nav class="tabs">
       <button class="tab-btn aktiv" data-tab="profil">Profil</button>
       <button class="tab-btn" data-tab="plan">Wochenplan</button>
+      <button class="tab-btn" data-tab="favoriten">Favoriten</button>
       <button class="tab-btn" data-tab="einkauf">Einkaufsliste</button>
     </nav>
   </header>
@@ -130,6 +131,13 @@
       <div id="plan-inhalt"></div>
     </section>
 
+    <!-- ============ FAVORITEN ============ -->
+    <section id="tab-favoriten" class="tab-inhalt">
+      <h2 class="fav-titel">Deine Favoriten ❤️</h2>
+      <p class="intro">Gemerkte Rezepte tauchen im Wochenplan bevorzugt auf. Zum Merken auf das Herz beim Rezept tippen.</p>
+      <div id="favoriten-inhalt"></div>
+    </section>
+
     <!-- ============ EINKAUF ============ -->
     <section id="tab-einkauf" class="tab-inhalt">
       <div class="einkauf-kopf">
@@ -145,6 +153,7 @@
     <div class="modal-box">
       <button id="btn-modal-schliessen" class="modal-schliessen" aria-label="Schließen">×</button>
       <h2 id="modal-titel"></h2>
+      <button id="btn-fav" class="fav-btn" type="button"></button>
       <p id="modal-meta" class="modal-meta"></p>
       <div id="modal-zutaten"></div>
       <div id="modal-schritte"></div>

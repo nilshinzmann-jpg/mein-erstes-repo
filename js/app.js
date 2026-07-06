@@ -27,6 +27,7 @@ const DEFAULT_STATE = {
   },
   plan: null,       // generierter Wochenplan
   abgehakt: {},     // Einkaufsliste: { zutatKey: true }
+  favoriten: [],    // gemerkte Rezept-IDs
 };
 
 let state = ladeState();
@@ -121,20 +122,45 @@ function rezepteFuer(meal, p) {
   return REZEPTE.filter((r) => r.meal === meal && passtZuProfil(r, p));
 }
 
+/* ---------------- Favoriten ---------------- */
+
+function istFavorit(id) {
+  return state.favoriten.includes(id);
+}
+
+function toggleFavorit(id) {
+  const i = state.favoriten.indexOf(id);
+  if (i === -1) state.favoriten.push(id);
+  else state.favoriten.splice(i, 1);
+  speichereState();
+}
+
+function rezeptById(id) {
+  return REZEPTE.find((r) => r.id === id);
+}
+
 /* ---------------- Wochenplan ---------------- */
 
 const WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
 
-// Kleiner Shuffle mit möglichst wenig Wiederholung
+// Kleiner Shuffle mit möglichst wenig Wiederholung.
+// Favoriten werden pro Durchlauf bevorzugt gewählt (kommen zuerst dran).
 function waehleReihe(pool, anzahl) {
   if (pool.length === 0) return [];
   const ergebnis = [];
   let rest = [];
   for (let i = 0; i < anzahl; i++) {
-    if (rest.length === 0) rest = shuffle([...pool]);
+    if (rest.length === 0) rest = ordnePool(pool);
     ergebnis.push(rest.pop());
   }
   return ergebnis;
+}
+
+// Mischt den Pool, stellt Favoriten aber ans Ende (pop() nimmt sie zuerst)
+function ordnePool(pool) {
+  const favs = shuffle(pool.filter((r) => istFavorit(r.id)));
+  const rest = shuffle(pool.filter((r) => !istFavorit(r.id)));
+  return [...rest, ...favs];
 }
 
 function shuffle(arr) {
@@ -377,11 +403,19 @@ function renderPlan() {
       row.appendChild(info);
 
       const btnGroup = el("div", "gericht-actions");
+      const favBtn = el("button", "mini-btn herz" + (istFavorit(r.id) ? " aktiv" : ""), istFavorit(r.id) ? "❤️" : "🤍");
+      favBtn.title = "Als Favorit merken";
+      favBtn.onclick = () => {
+        toggleFavorit(r.id);
+        renderPlan();
+        renderFavoriten();
+      };
       const rezeptBtn = el("button", "mini-btn", "Rezept");
       rezeptBtn.onclick = () => zeigeRezept(r, faktor);
       const tauschBtn = el("button", "mini-btn", "↻");
       tauschBtn.title = "Gericht tauschen";
       tauschBtn.onclick = () => tauscheGericht(tag, idx, meal);
+      btnGroup.appendChild(favBtn);
       btnGroup.appendChild(rezeptBtn);
       btnGroup.appendChild(tauschBtn);
       row.appendChild(btnGroup);
@@ -417,8 +451,20 @@ function tauscheGericht(tag, idx, meal) {
 
 /* -------- Rezept-Modal -------- */
 
+let aktuellesRezeptId = null;
+
+function aktualisiereFavButton() {
+  const btn = $("#btn-fav");
+  if (!aktuellesRezeptId) return;
+  const fav = istFavorit(aktuellesRezeptId);
+  btn.textContent = fav ? "❤️ Favorit" : "🤍 Als Favorit merken";
+  btn.classList.toggle("aktiv", fav);
+}
+
 function zeigeRezept(r, faktor = 1) {
   const p = state.profil;
+  aktuellesRezeptId = r.id;
+  aktualisiereFavButton();
   $("#modal-titel").textContent = r.name;
   $("#modal-meta").textContent =
     `${MEAL_LABEL[r.meal]} · ${r.zeit} Min · ${Math.round(r.kcal * faktor)} kcal · ` +
@@ -448,6 +494,45 @@ function zeigeRezept(r, faktor = 1) {
 
 function schliesseModal() {
   $("#modal").classList.remove("offen");
+}
+
+/* -------- Favoriten-Ansicht -------- */
+
+function renderFavoriten() {
+  const wrap = $("#favoriten-inhalt");
+  wrap.innerHTML = "";
+  const favs = state.favoriten.map(rezeptById).filter(Boolean);
+
+  if (favs.length === 0) {
+    wrap.appendChild(
+      el("p", "hinweis", "Noch keine Favoriten. Öffne ein Rezept und tippe auf das Herz ❤️, um es hier zu sammeln.")
+    );
+    return;
+  }
+
+  for (const r of favs) {
+    const card = el("div", "fav-card");
+    const info = el("div", "gericht-info");
+    info.appendChild(el("span", "gericht-meal", MEAL_LABEL[r.meal]));
+    info.appendChild(el("span", "gericht-name", r.name));
+    info.appendChild(el("span", "gericht-kcal", `${r.kcal} kcal · ${r.zeit} Min`));
+    card.appendChild(info);
+
+    const actions = el("div", "gericht-actions");
+    const rezeptBtn = el("button", "mini-btn", "Rezept");
+    rezeptBtn.onclick = () => zeigeRezept(r);
+    const entfBtn = el("button", "mini-btn herz aktiv", "❤️");
+    entfBtn.title = "Aus Favoriten entfernen";
+    entfBtn.onclick = () => {
+      toggleFavorit(r.id);
+      renderFavoriten();
+      renderPlan();
+    };
+    actions.appendChild(rezeptBtn);
+    actions.appendChild(entfBtn);
+    card.appendChild(actions);
+    wrap.appendChild(card);
+  }
 }
 
 /* -------- Einkaufsliste -------- */
@@ -551,6 +636,14 @@ function init() {
     if (e.target.id === "modal") schliesseModal();
   });
 
+  $("#btn-fav").onclick = () => {
+    if (!aktuellesRezeptId) return;
+    toggleFavorit(aktuellesRezeptId);
+    aktualisiereFavButton();
+    renderFavoriten();
+    renderPlan();
+  };
+
   $("#btn-einkauf-kopieren").onclick = async () => {
     if (!state.plan) return;
     const text = einkaufAlsText();
@@ -570,6 +663,7 @@ function init() {
       renderProfil();
       renderPlan();
       renderEinkauf();
+      renderFavoriten();
       zeigeTab("profil");
     }
   };
@@ -577,6 +671,7 @@ function init() {
   renderProfil();
   renderPlan();
   renderEinkauf();
+  renderFavoriten();
 }
 
 document.addEventListener("DOMContentLoaded", init);
