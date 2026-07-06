@@ -285,6 +285,29 @@ function formatEinkaufsMenge(menge) {
   return String(Math.ceil(menge - 1e-6));
 }
 
+// Rezept-Mengen ohne Kommazahlen:
+// g/ml auf ganze Zahlen, Stück etc. als saubere Brüche (½, ¼, ¾).
+const BRUCH_ZEICHEN = { 0.25: "¼", 0.5: "½", 0.75: "¾" };
+
+function alsBruch(menge) {
+  let ganz = Math.floor(menge + 1e-9);
+  let rest = Math.round((menge - ganz) / 0.25) * 0.25;
+  if (rest >= 1) { ganz += 1; rest = 0; }
+  const bruch = BRUCH_ZEICHEN[rest] || "";
+  if (ganz === 0) return bruch || "0";
+  return bruch ? `${ganz}${bruch}` : String(ganz);
+}
+
+function formatRezeptMenge(menge, einheit) {
+  if (einheit === "g" || einheit === "ml") return String(Math.round(menge));
+  return alsBruch(menge);
+}
+
+// Portionsangabe (z.B. "2¾") ohne Kommazahl
+function formatPortionen(faktor) {
+  return alsBruch(faktor);
+}
+
 /* ==================================================================
  *  UI
  * ================================================================== */
@@ -422,7 +445,7 @@ function renderPlan() {
       const info = el("div", "gericht-info");
       info.appendChild(el("span", "gericht-meal", MEAL_LABEL[meal]));
       info.appendChild(el("span", "gericht-name", r.name));
-      const portionHinweis = Math.abs(faktor - 1) > 0.05 ? ` · ${formatMenge(faktor)} Portionen` : "";
+      const portionHinweis = Math.abs(faktor - 1) > 0.05 ? ` · ${formatPortionen(faktor)} Portionen` : "";
       info.appendChild(
         el("span", "gericht-kcal", `${Math.round(r.kcal * faktor)} kcal · ${r.zeit} Min${portionHinweis}`)
       );
@@ -499,13 +522,13 @@ function zeigeRezept(r, faktor = 1) {
 
   const ztDiv = $("#modal-zutaten");
   ztDiv.innerHTML = "";
-  const portionInfo = Math.abs(faktor - 1) > 0.05 ? `, ${formatMenge(faktor)} Portionen` : "";
+  const portionInfo = Math.abs(faktor - 1) > 0.05 ? `, ${formatPortionen(faktor)} Portionen` : "";
   ztDiv.appendChild(
     el("h4", null, `Zutaten (für ${p.personen} Person${p.personen > 1 ? "en" : ""}${portionInfo})`)
   );
   const ul = el("ul");
   for (const z of r.zutaten) {
-    ul.appendChild(el("li", null, `${formatMenge(z.menge * p.personen * faktor)} ${z.einheit} ${z.name}`));
+    ul.appendChild(el("li", null, `${formatRezeptMenge(z.menge * p.personen * faktor, z.einheit)} ${z.einheit} ${z.name}`));
   }
   ztDiv.appendChild(ul);
 
