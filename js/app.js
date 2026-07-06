@@ -23,6 +23,7 @@ const DEFAULT_STATE = {
     abneigungen: [],       // Zutaten-Stichwörter, z.B. ["pilz", "fisch"]
     mahlzeiten: 3,         // 3 = F/M/A, 4 = + Snack
     personen: 1,
+    kcalZiel: null,        // eigenes Kalorienziel (überschreibt Berechnung), null = automatisch
   },
   plan: null,       // generierter Wochenplan
   abgehakt: {},     // Einkaufsliste: { zutatKey: true }
@@ -61,10 +62,14 @@ function berechneBMR(p) {
 
 function berechneZiele(p) {
   const bmr = berechneBMR(p);
-  let kcal = bmr * p.aktivitaet;
-  if (p.ziel === "abnehmen") kcal -= 400;
-  if (p.ziel === "zunehmen") kcal += 350;
-  kcal = Math.round(kcal);
+  let berechnet = bmr * p.aktivitaet;
+  if (p.ziel === "abnehmen") berechnet -= 400;
+  if (p.ziel === "zunehmen") berechnet += 350;
+  berechnet = Math.round(berechnet);
+
+  // Eigenes Kalorienziel überschreibt die Berechnung
+  const manuell = p.kcalZiel && p.kcalZiel > 0 ? Math.round(p.kcalZiel) : null;
+  const kcal = manuell || berechnet;
 
   // Makro-Verteilung (an Ziel angepasst)
   let eiweissProKg = p.ziel === "abnehmen" ? 2.0 : 1.8;
@@ -72,7 +77,12 @@ function berechneZiele(p) {
   const fett = Math.round((kcal * 0.28) / 9);
   const kh = Math.max(0, Math.round((kcal - protein * 4 - fett * 9) / 4));
 
-  return { kcal, protein, kh, fett, bmr: Math.round(bmr) };
+  return { kcal, protein, kh, fett, bmr: Math.round(bmr), berechnet, manuell };
+}
+
+// Effektives Tagesziel in kcal (manuell oder berechnet)
+function zielKcal(p) {
+  return berechneZiele(p).kcal;
 }
 
 /* ---------------- Rezept-Filter ---------------- */
@@ -151,21 +161,35 @@ function generierePlan(p) {
   const reihen = {};
   for (const m of mahlzeiten) reihen[m] = waehleReihe(pools[m], 7);
 
+  const ziel = zielKcal(p);
   const tage = WOCHENTAGE.map((tag, i) => {
     const gerichte = mahlzeiten.map((m) => reihen[m][i]);
-    const summe = gerichte.reduce(
-      (acc, r) => ({
-        kcal: acc.kcal + r.kcal,
-        protein: acc.protein + r.protein,
-        kh: acc.kh + r.kh,
-        fett: acc.fett + r.fett,
-      }),
-      { kcal: 0, protein: 0, kh: 0, fett: 0 }
-    );
-    return { tag, mahlzeiten, gerichte, summe };
+    const faktor = portionsFaktor(gerichte, ziel);
+    return { tag, mahlzeiten, gerichte, faktor, summe: tagesSumme(gerichte, faktor) };
   });
 
-  return { tage, erstelltAm: new Date().toISOString() };
+  return { tage, ziel, erstelltAm: new Date().toISOString() };
+}
+
+// Faktor, mit dem die Portionen skaliert werden, damit der Tag das Ziel trifft
+function portionsFaktor(gerichte, ziel) {
+  const basis = gerichte.reduce((s, r) => s + r.kcal, 0);
+  if (!basis) return 1;
+  const f = ziel / basis;
+  return Math.min(4, Math.max(0.4, Math.round(f * 100) / 100));
+}
+
+// Tages-Nährwerte inkl. Portions-Skalierung
+function tagesSumme(gerichte, faktor) {
+  return gerichte.reduce(
+    (acc, r) => ({
+      kcal: acc.kcal + Math.round(r.kcal * faktor),
+      protein: acc.protein + Math.round(r.protein * faktor),
+      kh: acc.kh + Math.round(r.kh * faktor),
+      fett: acc.fett + Math.round(r.fett * faktor),
+    }),
+    { kcal: 0, protein: 0, kh: 0, fett: 0 }
+  );
 }
 
 /* ---------------- Einkaufsliste ---------------- */
@@ -180,10 +204,11 @@ const MEAL_LABEL = {
 function baueEinkaufsliste(plan, personen) {
   const map = new Map(); // key: name|einheit -> {name, einheit, menge, cat}
   for (const tag of plan.tage) {
+    const faktor = tag.faktor || 1;
     for (const r of tag.gerichte) {
       for (const z of r.zutaten) {
         const key = `${z.name.toLowerCase()}|${z.einheit}`;
-        const menge = z.menge * personen;
+        const menge = z.menge * personen * faktor;
         if (map.has(key)) {
           map.get(key).menge += menge;
         } else {
@@ -246,6 +271,7 @@ function renderProfil() {
   $("#f-mahlzeiten").value = p.mahlzeiten;
   $("#f-personen").value = p.personen;
   $("#f-abneigungen").value = p.abneigungen.join(", ");
+  $("#f-kcalziel").value = p.kcalZiel || "";
 
   document.querySelectorAll(".allergie-cb").forEach((cb) => {
     cb.checked = p.allergien.includes(cb.value);
@@ -270,8 +296,15 @@ function renderZiele() {
     card.appendChild(el("div", "ziel-label", label));
     box.appendChild(card);
   }
-  $("#bmr-hinweis").textContent =
-    `Grundumsatz ca. ${z.bmr} kcal · Tagesbedarf inkl. Aktivität & Ziel: ${z.kcal} kcal`;
+  if (z.manuell) {
+    $("#bmr-hinweis").textContent =
+      `Eigenes Ziel aktiv: ${z.manuell} kcal (berechnet wären ${z.berechnet} kcal). ` +
+      `Die Portionen im Wochenplan werden auf dieses Ziel skaliert.`;
+  } else {
+    $("#bmr-hinweis").textContent =
+      `Grundumsatz ca. ${z.bmr} kcal · Tagesbedarf inkl. Aktivität & Ziel: ${z.kcal} kcal. ` +
+      `Die Portionen im Wochenplan werden auf dieses Ziel skaliert.`;
+  }
 }
 
 function leseProfilAusFormular() {
@@ -291,6 +324,8 @@ function leseProfilAusFormular() {
     .map((s) => s.trim())
     .filter(Boolean);
   p.allergien = [...document.querySelectorAll(".allergie-cb:checked")].map((cb) => cb.value);
+  const kcalRaw = $("#f-kcalziel").value.trim();
+  p.kcalZiel = kcalRaw === "" ? null : clampNum(kcalRaw, 800, 6000, null);
 }
 
 function clampNum(v, min, max, fallback) {
@@ -312,9 +347,10 @@ function renderPlan() {
     return;
   }
 
-  const ziel = berechneZiele(state.profil).kcal;
+  const ziel = state.plan.ziel || berechneZiele(state.profil).kcal;
 
   for (const tag of state.plan.tage) {
+    const faktor = tag.faktor || 1;
     const card = el("div", "tag-card");
     const kopf = el("div", "tag-kopf");
     kopf.appendChild(el("h3", null, tag.tag));
@@ -334,12 +370,15 @@ function renderPlan() {
       const info = el("div", "gericht-info");
       info.appendChild(el("span", "gericht-meal", MEAL_LABEL[meal]));
       info.appendChild(el("span", "gericht-name", r.name));
-      info.appendChild(el("span", "gericht-kcal", `${r.kcal} kcal · ${r.zeit} Min`));
+      const portionHinweis = Math.abs(faktor - 1) > 0.05 ? ` · ${formatMenge(faktor)} Portionen` : "";
+      info.appendChild(
+        el("span", "gericht-kcal", `${Math.round(r.kcal * faktor)} kcal · ${r.zeit} Min${portionHinweis}`)
+      );
       row.appendChild(info);
 
       const btnGroup = el("div", "gericht-actions");
       const rezeptBtn = el("button", "mini-btn", "Rezept");
-      rezeptBtn.onclick = () => zeigeRezept(r);
+      rezeptBtn.onclick = () => zeigeRezept(r, faktor);
       const tauschBtn = el("button", "mini-btn", "↻");
       tauschBtn.title = "Gericht tauschen";
       tauschBtn.onclick = () => tauscheGericht(tag, idx, meal);
@@ -368,15 +407,9 @@ function tauscheGericht(tag, idx, meal) {
   const kandidaten = pool.filter((r) => r.id !== aktuell);
   const neu = kandidaten[Math.floor(Math.random() * kandidaten.length)];
   tag.gerichte[idx] = neu;
-  tag.summe = tag.gerichte.reduce(
-    (acc, r) => ({
-      kcal: acc.kcal + r.kcal,
-      protein: acc.protein + r.protein,
-      kh: acc.kh + r.kh,
-      fett: acc.fett + r.fett,
-    }),
-    { kcal: 0, protein: 0, kh: 0, fett: 0 }
-  );
+  const ziel = state.plan.ziel || zielKcal(state.profil);
+  tag.faktor = portionsFaktor(tag.gerichte, ziel);
+  tag.summe = tagesSumme(tag.gerichte, tag.faktor);
   speichereState();
   renderPlan();
   renderEinkauf();
@@ -384,18 +417,22 @@ function tauscheGericht(tag, idx, meal) {
 
 /* -------- Rezept-Modal -------- */
 
-function zeigeRezept(r) {
+function zeigeRezept(r, faktor = 1) {
   const p = state.profil;
   $("#modal-titel").textContent = r.name;
   $("#modal-meta").textContent =
-    `${MEAL_LABEL[r.meal]} · ${r.zeit} Min · ${r.kcal} kcal · E ${r.protein}g / KH ${r.kh}g / F ${r.fett}g`;
+    `${MEAL_LABEL[r.meal]} · ${r.zeit} Min · ${Math.round(r.kcal * faktor)} kcal · ` +
+    `E ${Math.round(r.protein * faktor)}g / KH ${Math.round(r.kh * faktor)}g / F ${Math.round(r.fett * faktor)}g`;
 
   const ztDiv = $("#modal-zutaten");
   ztDiv.innerHTML = "";
-  ztDiv.appendChild(el("h4", null, `Zutaten (für ${p.personen} Person${p.personen > 1 ? "en" : ""})`));
+  const portionInfo = Math.abs(faktor - 1) > 0.05 ? `, ${formatMenge(faktor)} Portionen` : "";
+  ztDiv.appendChild(
+    el("h4", null, `Zutaten (für ${p.personen} Person${p.personen > 1 ? "en" : ""}${portionInfo})`)
+  );
   const ul = el("ul");
   for (const z of r.zutaten) {
-    ul.appendChild(el("li", null, `${formatMenge(z.menge * p.personen)} ${z.einheit} ${z.name}`));
+    ul.appendChild(el("li", null, `${formatMenge(z.menge * p.personen * faktor)} ${z.einheit} ${z.name}`));
   }
   ztDiv.appendChild(ul);
 
