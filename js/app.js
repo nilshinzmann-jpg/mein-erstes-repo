@@ -508,6 +508,26 @@ function einkaufAlsText() {
  *  Events / Init
  * ================================================================== */
 
+// Erstellt einen (frischen) Wochenplan. wechselTab=false bleibt im Plan-Tab.
+function erstellePlan(wechselTab) {
+  leseProfilAusFormular();
+  const plan = generierePlan(state.profil);
+  if (plan.fehler) {
+    const namen = plan.fehler.map((m) => MEAL_LABEL[m]).join(", ");
+    alert(
+      `Für folgende Mahlzeit(en) gibt es mit deinen aktuellen Einstellungen keine passenden Rezepte: ${namen}.\n\n` +
+      `Tipp: Lockere die Filter (Ernährungsform, Allergien oder Abneigungen) etwas.`
+    );
+    return;
+  }
+  state.plan = plan;
+  state.abgehakt = {};
+  speichereState();
+  renderPlan();
+  renderEinkauf();
+  if (wechselTab) zeigeTab("plan");
+}
+
 function init() {
   // Tabs
   document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -523,24 +543,8 @@ function init() {
     });
   });
 
-  $("#btn-plan").onclick = () => {
-    leseProfilAusFormular();
-    const plan = generierePlan(state.profil);
-    if (plan.fehler) {
-      const namen = plan.fehler.map((m) => MEAL_LABEL[m]).join(", ");
-      alert(
-        `Für folgende Mahlzeit(en) gibt es mit deinen aktuellen Einstellungen keine passenden Rezepte: ${namen}.\n\n` +
-        `Tipp: Lockere die Filter (Ernährungsform, Allergien oder Abneigungen) etwas.`
-      );
-      return;
-    }
-    state.plan = plan;
-    state.abgehakt = {};
-    speichereState();
-    renderPlan();
-    renderEinkauf();
-    zeigeTab("plan");
-  };
+  $("#btn-plan").onclick = () => erstellePlan(true);
+  $("#btn-neue-woche").onclick = () => erstellePlan(false);
 
   $("#btn-modal-schliessen").onclick = schliesseModal;
   $("#modal").addEventListener("click", (e) => {
