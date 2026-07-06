@@ -25,6 +25,7 @@ const DEFAULT_STATE = {
     mahlzeiten: 3,         // 3 = F/M/A, 4 = + Snack
     personen: 1,
     kcalZiel: null,        // eigenes Kalorienziel (überschreibt Berechnung), null = automatisch
+    mealPrepTage: 1,       // 1 = aus, 2/3 = gleiches Gericht für 2/3 Tage vorkochen
   },
   plan: null,       // generierter Wochenplan
   abgehakt: {},     // Einkaufsliste: { zutatKey: true }
@@ -201,8 +202,19 @@ function generierePlan(p) {
     return { fehler: fehlend };
   }
 
+  // Meal-Prep: gleiches Gericht für mehrere Tage (in Blöcken vorkochen)
+  const prep = p.mealPrepTage >= 2 ? Math.min(3, p.mealPrepTage) : 1;
+  const anzahlBloecke = Math.ceil(7 / prep);
+
   const reihen = {};
-  for (const m of mahlzeiten) reihen[m] = waehleReihe(pools[m], 7);
+  for (const m of mahlzeiten) {
+    const basis = waehleReihe(pools[m], anzahlBloecke);
+    const erweitert = [];
+    for (const r of basis) {
+      for (let k = 0; k < prep; k++) erweitert.push(r);
+    }
+    reihen[m] = erweitert.slice(0, 7);
+  }
 
   const ziel = zielKcal(p);
   const tage = WOCHENTAGE.map((tag, i) => {
@@ -341,6 +353,7 @@ function renderProfil() {
   $("#f-ernaehrung").value = p.ernaehrung;
   $("#f-mahlzeiten").value = p.mahlzeiten;
   $("#f-personen").value = p.personen;
+  $("#f-mealprep").value = p.mealPrepTage || 1;
   $("#f-abneigungen").value = p.abneigungen.join(", ");
   $("#f-kcalziel").value = p.kcalZiel || "";
 
@@ -393,6 +406,7 @@ function leseProfilAusFormular() {
   p.ernaehrung = $("#f-ernaehrung").value;
   p.mahlzeiten = parseInt($("#f-mahlzeiten").value, 10);
   p.personen = clampNum($("#f-personen").value, 1, 12, 1);
+  p.mealPrepTage = parseInt($("#f-mealprep").value, 10) || 1;
   p.abneigungen = $("#f-abneigungen").value
     .split(",")
     .map((s) => s.trim())
@@ -424,11 +438,20 @@ function renderPlan() {
 
   const ziel = state.plan.ziel || berechneZiele(state.profil).kcal;
 
-  for (const tag of state.plan.tage) {
+  state.plan.tage.forEach((tag, tagIdx) => {
     const faktor = tag.faktor || 1;
     const card = el("div", "tag-card");
     const kopf = el("div", "tag-kopf");
-    kopf.appendChild(el("h3", null, tag.tag));
+    const titel = el("h3", null, tag.tag);
+    // Meal-Prep: identisch zum Vortag? -> als "vorgekocht" markieren
+    const vortag = state.plan.tage[tagIdx - 1];
+    const vorgekocht =
+      vortag && tag.gerichte.length === vortag.gerichte.length &&
+      tag.gerichte.every((r, i) => r.id === vortag.gerichte[i].id);
+    if (vorgekocht) {
+      titel.appendChild(el("span", "prep-chip", "🍱 vorgekocht"));
+    }
+    kopf.appendChild(titel);
     const diff = tag.summe.kcal - ziel;
     const badge = el(
       "span",
@@ -481,7 +504,7 @@ function renderPlan() {
     );
     card.appendChild(makros);
     wrap.appendChild(card);
-  }
+  });
 }
 
 function tauscheGericht(tag, idx, meal) {
