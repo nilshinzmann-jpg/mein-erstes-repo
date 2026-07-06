@@ -258,6 +258,40 @@ main { max-width: 820px; margin: 0 auto; padding: 20px; }
   box-shadow: var(--schatten);
 }
 
+/* ---------- Rezept-Browser ---------- */
+.rezept-suche {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--rand);
+  border-radius: 12px;
+  font-size: 15px;
+  background: var(--karte);
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.rezept-suche:focus { outline: none; border-color: var(--gruen); box-shadow: 0 0 0 3px var(--gruen-hell); }
+.filter-reihe { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.filter-btn {
+  border: 1px solid var(--rand);
+  background: var(--karte);
+  color: var(--grau);
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.filter-btn.aktiv { background: var(--gruen); color: #fff; border-color: var(--gruen); }
+.tag-reihe { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.tag-chip {
+  font-size: 11px;
+  background: var(--gruen-hell);
+  color: var(--gruen-dunkel);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
 /* ---------- Modal ---------- */
 .modal {
   display: none;

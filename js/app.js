@@ -435,6 +435,7 @@ function renderPlan() {
         toggleFavorit(r.id);
         renderPlan();
         renderFavoriten();
+        renderRezepte();
       };
       const rezeptBtn = el("button", "mini-btn", "Rezept");
       rezeptBtn.onclick = () => zeigeRezept(r, faktor);
@@ -553,9 +554,72 @@ function renderFavoriten() {
       toggleFavorit(r.id);
       renderFavoriten();
       renderPlan();
+      renderRezepte();
     };
     actions.appendChild(rezeptBtn);
     actions.appendChild(entfBtn);
+    card.appendChild(actions);
+    wrap.appendChild(card);
+  }
+}
+
+/* -------- Rezept-Browser -------- */
+
+let rezeptSuche = "";
+let rezeptMealFilter = "alle";
+
+const TAG_LABEL = {
+  vegetarisch: "vegetarisch", vegan: "vegan", pescetarisch: "pescetarisch",
+  "low-carb": "low carb", "high-protein": "high protein",
+  glutenfrei: "glutenfrei", laktosefrei: "laktosefrei",
+};
+
+function renderRezepte() {
+  const wrap = $("#rezepte-inhalt");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+
+  const suche = rezeptSuche.trim().toLowerCase();
+  const treffer = REZEPTE.filter((r) => {
+    if (rezeptMealFilter !== "alle" && r.meal !== rezeptMealFilter) return false;
+    if (!suche) return true;
+    const text = (r.name + " " + r.tags.join(" ") + " " +
+      r.zutaten.map((z) => z.name).join(" ")).toLowerCase();
+    return text.includes(suche);
+  });
+
+  $("#rezept-anzahl").textContent =
+    `${treffer.length} von ${REZEPTE.length} Rezepten`;
+
+  if (treffer.length === 0) {
+    wrap.appendChild(el("p", "hinweis", "Keine Rezepte gefunden. Versuch einen anderen Suchbegriff."));
+    return;
+  }
+
+  for (const r of treffer) {
+    const card = el("div", "fav-card");
+    const info = el("div", "gericht-info");
+    info.appendChild(el("span", "gericht-meal", MEAL_LABEL[r.meal]));
+    info.appendChild(el("span", "gericht-name", r.name));
+    info.appendChild(el("span", "gericht-kcal", `${r.kcal} kcal · ${r.zeit} Min`));
+    const tags = el("div", "tag-reihe");
+    for (const t of r.tags) tags.appendChild(el("span", "tag-chip", TAG_LABEL[t] || t));
+    info.appendChild(tags);
+    card.appendChild(info);
+
+    const actions = el("div", "gericht-actions");
+    const rezeptBtn = el("button", "mini-btn", "Rezept");
+    rezeptBtn.onclick = () => zeigeRezept(r);
+    const favBtn = el("button", "mini-btn herz" + (istFavorit(r.id) ? " aktiv" : ""), istFavorit(r.id) ? "❤️" : "🤍");
+    favBtn.title = "Als Favorit merken";
+    favBtn.onclick = () => {
+      toggleFavorit(r.id);
+      renderRezepte();
+      renderFavoriten();
+      renderPlan();
+    };
+    actions.appendChild(rezeptBtn);
+    actions.appendChild(favBtn);
     card.appendChild(actions);
     wrap.appendChild(card);
   }
@@ -668,7 +732,22 @@ function init() {
     aktualisiereFavButton();
     renderFavoriten();
     renderPlan();
+    renderRezepte();
   };
+
+  // Rezept-Browser: Suche + Filter
+  $("#rezept-suche").addEventListener("input", (e) => {
+    rezeptSuche = e.target.value;
+    renderRezepte();
+  });
+  document.querySelectorAll("#rezept-filter .filter-btn").forEach((btn) => {
+    btn.onclick = () => {
+      rezeptMealFilter = btn.dataset.meal;
+      document.querySelectorAll("#rezept-filter .filter-btn").forEach((b) => b.classList.remove("aktiv"));
+      btn.classList.add("aktiv");
+      renderRezepte();
+    };
+  });
 
   $("#btn-einkauf-kopieren").onclick = async () => {
     if (!state.plan) return;
@@ -698,6 +777,7 @@ function init() {
   renderPlan();
   renderEinkauf();
   renderFavoriten();
+  renderRezepte();
 }
 
 document.addEventListener("DOMContentLoaded", init);

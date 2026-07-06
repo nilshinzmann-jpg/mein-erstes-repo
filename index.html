@@ -17,6 +17,7 @@
     <nav class="tabs">
       <button class="tab-btn aktiv" data-tab="profil">Profil</button>
       <button class="tab-btn" data-tab="plan">Wochenplan</button>
+      <button class="tab-btn" data-tab="rezepte">Rezepte</button>
       <button class="tab-btn" data-tab="favoriten">Favoriten</button>
       <button class="tab-btn" data-tab="einkauf">Einkaufsliste</button>
     </nav>
@@ -135,6 +136,22 @@
         <button id="btn-neue-woche" class="text-btn">🔄 Neue Woche</button>
       </div>
       <div id="plan-inhalt"></div>
+    </section>
+
+    <!-- ============ REZEPTE ============ -->
+    <section id="tab-rezepte" class="tab-inhalt">
+      <h2 class="fav-titel">Alle Rezepte</h2>
+      <p class="intro">Durchstöbere alle Rezepte, suche nach Namen und filtere nach Mahlzeit.</p>
+      <input type="search" id="rezept-suche" class="rezept-suche" placeholder="🔍 Rezept suchen (z. B. Curry, Lachs, vegan) …" />
+      <div class="filter-reihe" id="rezept-filter">
+        <button class="filter-btn aktiv" data-meal="alle">Alle</button>
+        <button class="filter-btn" data-meal="fruehstueck">Frühstück</button>
+        <button class="filter-btn" data-meal="mittag">Mittag</button>
+        <button class="filter-btn" data-meal="abend">Abend</button>
+        <button class="filter-btn" data-meal="snack">Snack</button>
+      </div>
+      <p id="rezept-anzahl" class="klein"></p>
+      <div id="rezepte-inhalt"></div>
     </section>
 
     <!-- ============ FAVORITEN ============ -->
