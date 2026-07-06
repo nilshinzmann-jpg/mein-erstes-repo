@@ -18,7 +18,8 @@ const DEFAULT_STATE = {
     gewicht: 75,
     aktivitaet: 1.55,      // Aktivitätsfaktor (PAL)
     ziel: "halten",        // abnehmen | halten | zunehmen
-    ernaehrung: "omnivor", // omnivor | vegetarisch | vegan | pescetarisch | low-carb | high-protein
+    ernaehrung: "omnivor", // omnivor | vegetarisch | vegan | pescetarisch
+    vorlieben: [],         // kombinierbar: ["high-protein", "low-carb"]
     allergien: [],         // z.B. ["glutenfrei", "laktosefrei"]
     abneigungen: [],       // Zutaten-Stichwörter, z.B. ["pilz", "fisch"]
     mahlzeiten: 3,         // 3 = F/M/A, 4 = + Snack
@@ -39,14 +40,27 @@ function ladeState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return structuredClone(DEFAULT_STATE);
     const gespeichert = JSON.parse(raw);
-    return {
+    const zusammengefuehrt = {
       ...structuredClone(DEFAULT_STATE),
       ...gespeichert,
       profil: { ...DEFAULT_STATE.profil, ...(gespeichert.profil || {}) },
     };
+    return migriere(zusammengefuehrt);
   } catch (e) {
     return structuredClone(DEFAULT_STATE);
   }
+}
+
+// Ältere Profile: "high-protein"/"low-carb" waren früher Ernährungsformen,
+// jetzt sind es kombinierbare Vorlieben.
+function migriere(s) {
+  const p = s.profil;
+  if (!Array.isArray(p.vorlieben)) p.vorlieben = [];
+  if (p.ernaehrung === "high-protein" || p.ernaehrung === "low-carb") {
+    if (!p.vorlieben.includes(p.ernaehrung)) p.vorlieben.push(p.ernaehrung);
+    p.ernaehrung = "omnivor";
+  }
+  return s;
 }
 
 function speichereState() {
@@ -89,7 +103,7 @@ function zielKcal(p) {
 /* ---------------- Rezept-Filter ---------------- */
 
 function passtZuProfil(rezept, p) {
-  // Ernährungsform
+  // Basis-Ernährungsform (nur eine)
   const e = p.ernaehrung;
   const t = rezept.tags;
   if (e === "vegan" && !t.includes("vegan")) return false;
@@ -98,8 +112,11 @@ function passtZuProfil(rezept, p) {
     const okFleisch = t.includes("vegetarisch") || t.includes("vegan") || t.includes("pescetarisch");
     if (!okFleisch) return false;
   }
-  if (e === "low-carb" && !t.includes("low-carb")) return false;
-  if (e === "high-protein" && !t.includes("high-protein")) return false;
+
+  // Zusätzliche Vorlieben (frei kombinierbar, z.B. high-protein + low-carb)
+  for (const v of p.vorlieben || []) {
+    if (!t.includes(v)) return false;
+  }
 
   // Allergien / Unverträglichkeiten (müssen als Tag vorhanden sein)
   for (const a of p.allergien) {
@@ -299,6 +316,9 @@ function renderProfil() {
   $("#f-abneigungen").value = p.abneigungen.join(", ");
   $("#f-kcalziel").value = p.kcalZiel || "";
 
+  document.querySelectorAll(".vorliebe-cb").forEach((cb) => {
+    cb.checked = (p.vorlieben || []).includes(cb.value);
+  });
   document.querySelectorAll(".allergie-cb").forEach((cb) => {
     cb.checked = p.allergien.includes(cb.value);
   });
@@ -349,6 +369,7 @@ function leseProfilAusFormular() {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  p.vorlieben = [...document.querySelectorAll(".vorliebe-cb:checked")].map((cb) => cb.value);
   p.allergien = [...document.querySelectorAll(".allergie-cb:checked")].map((cb) => cb.value);
   const kcalRaw = $("#f-kcalziel").value.trim();
   p.kcalZiel = kcalRaw === "" ? null : clampNum(kcalRaw, 800, 6000, null);

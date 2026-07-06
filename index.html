@@ -77,8 +77,6 @@
               <option value="vegetarisch">Vegetarisch</option>
               <option value="vegan">Vegan</option>
               <option value="pescetarisch">Pescetarisch (Fisch, kein Fleisch)</option>
-              <option value="low-carb">Low Carb</option>
-              <option value="high-protein">High Protein</option>
             </select>
           </label>
           <label class="feld">
@@ -93,6 +91,14 @@
             <input type="number" id="f-personen" min="1" max="12" />
           </label>
         </div>
+
+        <fieldset class="feld-block">
+          <legend>Zusätzliche Vorlieben (kombinierbar)</legend>
+          <div class="cb-reihe">
+            <label class="cb"><input type="checkbox" class="vorliebe-cb" value="high-protein" /> High Protein</label>
+            <label class="cb"><input type="checkbox" class="vorliebe-cb" value="low-carb" /> Low Carb</label>
+          </div>
+        </fieldset>
 
         <fieldset class="feld-block">
           <legend>Unverträglichkeiten</legend>
