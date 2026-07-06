@@ -280,6 +280,11 @@ function formatMenge(menge) {
   return Number.isInteger(gerundet) ? String(gerundet) : gerundet.toFixed(2).replace(/0$/, "");
 }
 
+// Einkaufsliste: immer auf ganze Zahlen aufrunden (keine Kommazahlen)
+function formatEinkaufsMenge(menge) {
+  return String(Math.ceil(menge - 1e-6));
+}
+
 /* ==================================================================
  *  UI
  * ================================================================== */
@@ -589,7 +594,7 @@ function renderEinkauf() {
         row.classList.toggle("erledigt", cb.checked);
       };
       row.appendChild(cb);
-      row.appendChild(el("span", "ek-menge", `${formatMenge(item.menge)} ${item.einheit}`));
+      row.appendChild(el("span", "ek-menge", `${formatEinkaufsMenge(item.menge)} ${item.einheit}`));
       row.appendChild(el("span", "ek-name", item.name));
       sektion.appendChild(row);
     }
@@ -604,7 +609,7 @@ function einkaufAlsText() {
   for (const cat of Object.keys(gruppen)) {
     text += `\n${labelMap[cat] || cat}:\n`;
     for (const item of gruppen[cat]) {
-      text += `- ${formatMenge(item.menge)} ${item.einheit} ${item.name}\n`;
+      text += `- ${formatEinkaufsMenge(item.menge)} ${item.einheit} ${item.name}\n`;
     }
   }
   return text;
